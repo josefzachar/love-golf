@@ -91,7 +91,7 @@ float getDensity(float cellType) {
 // Main fragment shader function
 vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
     // Convert screen coordinates to cell coordinates
-    vec2 cellPos = floor(screen_coords / 2.0);  // Divide by cell size
+    vec2 cellPos = floor(screen_coords);
     
     // Get current cell data
     vec4 currentCell = getCell(cellPos);
@@ -104,7 +104,7 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
     
     // If empty, check if something should fall into this cell
     if (cellType == EMPTY) {
-        // Check cell above for falling particles or liquids
+        // Check cell above for falling particles or liquids (optimize by checking only if needed)
         vec4 aboveCell = getCell(cellPos - vec2(0, 1));
         float aboveCellType = aboveCell.a * 255.0;
         
@@ -113,12 +113,18 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
             return aboveCell;
         }
         
-        // Check diagonals for particles (sand-like behavior)
-        vec4 aboveLeftCell = getCell(cellPos - vec2(1, 1));
-        float aboveLeftCellType = aboveLeftCell.a * 255.0;
+        // Only check diagonals for particles (sand-like behavior) if above cell isn't falling
+        vec4 aboveLeftCell = vec4(0.0);
+        vec4 aboveRightCell = vec4(0.0);
+        float aboveLeftCellType = 0.0;
+        float aboveRightCellType = 0.0;
         
-        vec4 aboveRightCell = getCell(cellPos - vec2(-1, 1));
-        float aboveRightCellType = aboveRightCell.a * 255.0;
+        // Only fetch these cells if we need to check for particles
+        aboveLeftCell = getCell(cellPos - vec2(1, 1));
+        aboveLeftCellType = aboveLeftCell.a * 255.0;
+        
+        aboveRightCell = getCell(cellPos - vec2(-1, 1));
+        aboveRightCellType = aboveRightCell.a * 255.0;
         
         // Randomly choose left or right for variety
         bool checkLeftFirst = random(cellPos) > 0.5;

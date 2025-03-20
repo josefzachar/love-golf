@@ -86,6 +86,9 @@ function Camera:shake(amount, duration)
     self.shakeTime = 0
 end
 
+-- Flag to control automatic following
+local followTarget = true
+
 -- Update camera position and effects
 function Camera:update(dt, target)
     -- Update shake effect
@@ -97,8 +100,8 @@ function Camera:update(dt, target)
         end
     end
     
-    -- Update target position if a target is provided
-    if target then
+    -- Update target position if a target is provided AND followTarget is true
+    if target and followTarget then
         self:setTarget(target.x, target.y)
     end
     
@@ -120,6 +123,25 @@ function Camera:update(dt, target)
         self.y = math.max(self.bounds.top + halfScreenHeight, 
                           math.min(self.bounds.bottom - halfScreenHeight, self.y))
     end
+end
+
+-- Toggle target following
+function Camera:toggleFollowTarget()
+    followTarget = not followTarget
+    print("Camera follow target:", followTarget)
+    return followTarget
+end
+
+-- Disable target following
+function Camera:disableFollowTarget()
+    followTarget = false
+    print("Camera follow target disabled")
+end
+
+-- Enable target following
+function Camera:enableFollowTarget()
+    followTarget = true
+    print("Camera follow target enabled")
 end
 
 -- Start camera transformation
@@ -160,8 +182,16 @@ function Camera:screenToWorld(screenX, screenY)
     local screenWidth = love.graphics.getWidth()
     local screenHeight = love.graphics.getHeight()
     
-    local worldX = (screenX - screenWidth / 2) / self.scale + self.x
-    local worldY = (screenY - screenHeight / 2) / self.scale + self.y
+    -- Use offset if available, otherwise use screen center
+    local offsetX = self.offsetX or screenWidth / 2
+    local offsetY = self.offsetY or screenHeight / 2
+    
+    local worldX = (screenX - offsetX) / self.scale + self.x
+    local worldY = (screenY - offsetY) / self.scale + self.y
+    
+    -- Debug output
+    print("screenToWorld:", screenX, screenY, "->", worldX, worldY)
+    print("Camera:", self.x, self.y, "Scale:", self.scale, "Offset:", offsetX, offsetY)
     
     return worldX, worldY
 end
@@ -171,8 +201,15 @@ function Camera:worldToScreen(worldX, worldY)
     local screenWidth = love.graphics.getWidth()
     local screenHeight = love.graphics.getHeight()
     
-    local screenX = (worldX - self.x) * self.scale + screenWidth / 2
-    local screenY = (worldY - self.y) * self.scale + screenHeight / 2
+    -- Use offset if available, otherwise use screen center
+    local offsetX = self.offsetX or screenWidth / 2
+    local offsetY = self.offsetY or screenHeight / 2
+    
+    local screenX = (worldX - self.x) * self.scale + offsetX
+    local screenY = (worldY - self.y) * self.scale + offsetY
+    
+    -- Debug output
+    print("worldToScreen:", worldX, worldY, "->", screenX, screenY)
     
     return screenX, screenY
 end

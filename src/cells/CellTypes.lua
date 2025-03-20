@@ -8,9 +8,10 @@ local CellTypes = {
     -- Solid materials
     STONE = 10,
     DIRT = 11,
-    MUD = 12,
-    WOOD = 13,
-    METAL = 14,
+    GRASS = 12,  -- Grass (appears on top of dirt)
+    MUD = 13,
+    WOOD = 14,
+    METAL = 15,
     
     -- Particle solids
     SAND = 20,
@@ -71,6 +72,15 @@ local properties = {
         destructible = true,
         density = 3,
         defaultColor = {0.6, 0.4, 0.2, 1}
+    },
+    [CellTypes.GRASS] = {
+        solid = true,
+        liquid = false,
+        particle = false,
+        flammable = true,
+        destructible = true,
+        density = 3,
+        defaultColor = {0.3, 0.7, 0.2, 1}  -- Green color for grass
     },
     [CellTypes.MUD] = {
         solid = true,

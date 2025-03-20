@@ -65,29 +65,46 @@ function UI:createMenuUI()
             y = 100,
             align = "center"
         },
-        startButton = {
+        emptyCanvasButton = {
             type = "button",
-            text = "Start Game",
+            text = "Empty Canvas",
             font = self.fonts.large,
             x = love.graphics.getWidth() / 2 - 100,
-            y = 250,
+            y = 220,
             width = 200,
             height = 50,
             color = self.colors.button,
             hoverColor = self.colors.buttonHover,
             textColor = self.colors.buttonText,
-                onClick = function()
-                    -- Load level 2 for material debugging
-                    loadLevel(2)  -- This is a global function defined in main.lua
-                    self.gameState:setState("PLAYING")
-                end
+            onClick = function()
+                -- Start with an empty world
+                createEmptyCanvas()  -- This is a global function defined in main.lua
+                self.gameState:setState("PLAYING")
+            end
+        },
+        generatedLevelButton = {
+            type = "button",
+            text = "Generated Level",
+            font = self.fonts.large,
+            x = love.graphics.getWidth() / 2 - 100,
+            y = 290,
+            width = 200,
+            height = 50,
+            color = self.colors.button,
+            hoverColor = self.colors.buttonHover,
+            textColor = self.colors.buttonText,
+            onClick = function()
+                -- Generate a random level with terrain
+                generateRandomLevel()  -- This is a global function defined in main.lua
+                self.gameState:setState("PLAYING")
+            end
         },
         settingsButton = {
             type = "button",
             text = "Settings",
             font = self.fonts.large,
             x = love.graphics.getWidth() / 2 - 100,
-            y = 320,
+            y = 360,
             width = 200,
             height = 50,
             color = self.colors.button,
@@ -102,7 +119,7 @@ function UI:createMenuUI()
             text = "Exit",
             font = self.fonts.large,
             x = love.graphics.getWidth() / 2 - 100,
-            y = 390,
+            y = 430,
             width = 200,
             height = 50,
             color = self.colors.button,
@@ -402,7 +419,8 @@ function UI:update(dt)
     -- Update menu elements
     if self.elements.menu then
         self.elements.menu.title.x = width / 2
-        self.elements.menu.startButton.x = width / 2 - 100
+        self.elements.menu.emptyCanvasButton.x = width / 2 - 100
+        self.elements.menu.generatedLevelButton.x = width / 2 - 100
         self.elements.menu.settingsButton.x = width / 2 - 100
         self.elements.menu.exitButton.x = width / 2 - 100
     end
@@ -476,7 +494,8 @@ function UI:drawMenu()
     love.graphics.printf(title.text, title.x - 200, title.y, 400, title.align)
     
     -- Draw buttons
-    self:drawButton(self.elements.menu.startButton)
+    self:drawButton(self.elements.menu.emptyCanvasButton)
+    self:drawButton(self.elements.menu.generatedLevelButton)
     self:drawButton(self.elements.menu.settingsButton)
     self:drawButton(self.elements.menu.exitButton)
 end
