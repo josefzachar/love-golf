@@ -67,10 +67,6 @@ function love.load()
     -- Load level 2 for material debugging
     loadLevel(2)
     
-    -- Debug: Print some info
-    print("Game initialized")
-    print("World dimensions:", WORLD_WIDTH, "x", WORLD_HEIGHT)
-    print("Cell size:", CELL_SIZE)
 end
 
 -- Update game state
@@ -119,18 +115,14 @@ function love.draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.print("FPS: " .. love.timer.getFPS(), 10, 10)
     
-    -- Additional debug info
-    if gameState:isDebugMode() then
-        love.graphics.print("Cells: " .. cellWorld:getActiveCellCount(), 10, 30)
-        love.graphics.print("Ball Type: " .. ballManager:getCurrentBallType(), 10, 50)
-        love.graphics.print("Sim Speed: " .. SIMULATION_SPEED, 10, 70)
-    end
+    -- Always display active cell count and other info
+    love.graphics.print("Cells: " .. cellWorld:getActiveCellCount(), 10, 30)
+    love.graphics.print("Ball Type: " .. ballManager:getCurrentBallType(), 10, 50)
+    love.graphics.print("Sim Speed: " .. SIMULATION_SPEED, 10, 70)
 end
 
 -- Input callbacks
 function love.mousepressed(x, y, button)
-    -- Debug output to see which button is being pressed
-    print("LÖVE mousepressed event, button:", button)
     
     -- First check if UI handled the click
     if ui:mousepressed(x, y, button) then
@@ -142,20 +134,15 @@ function love.mousepressed(x, y, button)
 end
 
 function love.mousereleased(x, y, button)
-    -- Debug output to see which button is being released
-    print("LÖVE mousereleased event, button:", button)
     
     inputHandler:mousereleased(x, y, button)
 end
 
 -- Add a direct mouse movement handler
 function love.mousemoved(x, y, dx, dy, istouch)
-    -- Debug output to see mouse movement
-    print("LÖVE mousemoved event:", x, y, "delta:", dx, dy)
     
     -- Directly handle camera movement if a button is held down
     if inputHandler.cameraControl and inputHandler.cameraControl.active then
-        print("Camera control is active during mouse movement")
         
         -- Update mouse position
         inputHandler.mouseX = x
@@ -176,7 +163,6 @@ function love.mousemoved(x, y, dx, dy, istouch)
             inputHandler.camera.targetX = inputHandler.camera.x
             inputHandler.camera.targetY = inputHandler.camera.y
             
-            print("Directly updated camera position to:", inputHandler.camera.x, inputHandler.camera.y)
         end
     end
 end
@@ -185,13 +171,10 @@ function love.keypressed(key)
     -- First pass the key to the input handler
     inputHandler:keypressed(key)
     
-    -- Quick debug toggles
-    if key == "f3" then
-        gameState:toggleDebugMode()
-    elseif key == "r" then
+    -- Level reload
+    if key == "r" then
         -- Reload level when R is pressed
         loadLevel(gameState:getCurrentLevel())
-        print("Level reloaded manually")
     elseif key == "escape" then
         if gameState:getState() == "playing" then
             gameState:setState("PAUSED")
@@ -204,11 +187,9 @@ function love.keypressed(key)
     elseif key == "pageup" then
         -- Increase simulation speed
         SIMULATION_SPEED = math.min(SIMULATION_SPEED + 0.1, 2.0)
-        print("Simulation speed: " .. SIMULATION_SPEED)
     elseif key == "pagedown" then
         -- Decrease simulation speed
         SIMULATION_SPEED = math.max(SIMULATION_SPEED - 0.1, 0.1)
-        print("Simulation speed: " .. SIMULATION_SPEED)
     -- Camera reset
     elseif key == "c" then
         -- Reset camera position and scale
@@ -236,13 +217,11 @@ function love.keypressed(key)
         
         -- Re-enable camera follow if it was disabled
         camera:enableFollowTarget()
-        print("Camera reset")
     end
 end
 
 -- Create an empty canvas
 function createEmptyCanvas()
-    print("Creating empty canvas")
     gameState:setCurrentLevel(0)  -- Special level number for empty canvas
     cellWorld:clear()
     
@@ -305,7 +284,6 @@ function createEmptyCanvas()
     
     -- Focus camera on the center
     camera:focusOn(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)
-    print("Camera focused on center of empty canvas")
     
     -- Set appropriate camera scale for the empty canvas
     local windowWidth, windowHeight = love.graphics.getDimensions()
@@ -319,7 +297,6 @@ end
 
 -- Generate a random level with terrain
 function generateRandomLevel()
-    print("Generating random level")
     gameState:setCurrentLevel(99)  -- Special level number for generated level
     cellWorld:clear()
     
@@ -522,7 +499,6 @@ function generateRandomLevel()
     
     -- Focus camera on the ball
     camera:focusOn(startX, startY)
-    print("Camera focused on ball in generated level")
     
     -- Set appropriate camera scale for the random level
     local windowWidth, windowHeight = love.graphics.getDimensions()
@@ -536,30 +512,20 @@ end
 
 -- Load a specific level
 function loadLevel(levelNum)
-    print("Loading level", levelNum)
     gameState:setCurrentLevel(levelNum)
     cellWorld:clear()
     
     -- Load level data
     local levelData = require("src.levels.level" .. levelNum)
-    print("Level data loaded, cell count:", #levelData.cells)
     
-    -- Debug: Print some cells
-    for i = 1, math.min(5, #levelData.cells) do
-        local cell = levelData.cells[i]
-        print("Sample cell", i, ":", cell.x, cell.y, cell.type)
-    end
     
     cellWorld:loadFromData(levelData.cells)
-    print("Cells loaded into world")
     
     ballManager:reset(levelData.startPosition, levelData.ballType)
-    print("Ball reset at", levelData.startPosition.x, levelData.startPosition.y)
     
     -- For level 2 (debug level), focus on the center of the container
     if levelNum == 2 then
         camera:focusOn(50, 40)
-        print("Camera focused on level center")
         
         -- Calculate and set an appropriate camera scale for level 2
         local windowWidth, windowHeight = love.graphics.getDimensions()
@@ -571,7 +537,6 @@ function loadLevel(levelNum)
         camera:setZoom(scale)
     else
         camera:focusOn(levelData.startPosition.x, levelData.startPosition.y)
-        print("Camera focused on ball")
         
         -- For other levels, set a reasonable default scale
         -- This can be adjusted based on the specific level's size

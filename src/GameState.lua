@@ -31,8 +31,6 @@ function GameState.new()
     self.transitionDuration = 1.0  -- 1 second transition
     self.transitionCallback = nil
     
-    -- Debug mode
-    self.debugMode = false
     
     -- Settings
     self.settings = {
@@ -93,7 +91,6 @@ function GameState:setState(state)
             end
         end
         
-        print("Warning: Invalid game state: " .. state)
     end
 end
 
@@ -160,15 +157,6 @@ function GameState:getPar()
     return self.par
 end
 
--- Toggle debug mode
-function GameState:toggleDebugMode()
-    self.debugMode = not self.debugMode
-end
-
--- Check if debug mode is enabled
-function GameState:isDebugMode()
-    return self.debugMode
-end
 
 -- Check if a transition is in progress
 function GameState:isTransitioning()

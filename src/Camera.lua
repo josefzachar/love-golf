@@ -128,20 +128,17 @@ end
 -- Toggle target following
 function Camera:toggleFollowTarget()
     followTarget = not followTarget
-    print("Camera follow target:", followTarget)
     return followTarget
 end
 
 -- Disable target following
 function Camera:disableFollowTarget()
     followTarget = false
-    print("Camera follow target disabled")
 end
 
 -- Enable target following
 function Camera:enableFollowTarget()
     followTarget = true
-    print("Camera follow target enabled")
 end
 
 -- Start camera transformation
@@ -189,9 +186,6 @@ function Camera:screenToWorld(screenX, screenY)
     local worldX = (screenX - offsetX) / self.scale + self.x
     local worldY = (screenY - offsetY) / self.scale + self.y
     
-    -- Debug output
-    print("screenToWorld:", screenX, screenY, "->", worldX, worldY)
-    print("Camera:", self.x, self.y, "Scale:", self.scale, "Offset:", offsetX, offsetY)
     
     return worldX, worldY
 end
@@ -208,8 +202,6 @@ function Camera:worldToScreen(worldX, worldY)
     local screenX = (worldX - self.x) * self.scale + offsetX
     local screenY = (worldY - self.y) * self.scale + offsetY
     
-    -- Debug output
-    print("worldToScreen:", worldX, worldY, "->", screenX, screenY)
     
     return screenX, screenY
 end

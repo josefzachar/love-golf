@@ -66,10 +66,7 @@ function InputHandler:update(dt)
     local oldMouseX, oldMouseY = self.mouseX, self.mouseY
     self.mouseX, self.mouseY = love.mouse.getPosition()
     
-    -- Debug output for mouse movement
-    if self.mouseX ~= oldMouseX or self.mouseY ~= oldMouseY then
-        print("Mouse moved to:", self.mouseX, self.mouseY)
-    end
+    -- Mouse movement tracking (no debug output)
     
     -- Handle mouse dragging for cell placement
     if self.mouseDown and not self.cameraControl.active then
@@ -155,32 +152,15 @@ end
 function InputHandler:placeCells(worldX, worldY)
     if not self.cellWorld then return end
     
-    -- Debug output to help diagnose issues
-    print("===== CELL PLACEMENT DEBUG =====")
-    print("Mouse position:", self.mouseX, self.mouseY)
-    print("Placing cells at world coordinates:", worldX, worldY)
-    print("Camera position:", self.camera.x, self.camera.y)
-    print("Camera scale:", self.camera.scale)
-    print("Cell size:", self.cellWorld.cellSize)
-    
     -- Convert world coordinates to cell coordinates
     -- Need to account for the fact that cell coordinates (1,1) correspond to world coordinates (0,0)
     local cellSize = self.cellWorld.cellSize
     local cellX = math.floor(worldX / cellSize) + 1
     local cellY = math.floor(worldY / cellSize) + 1
-
-    print("Cell coordinates:", cellX, cellY)
     
-    -- Calculate the world position of the cell for verification
+    -- Calculate the world position of the cell
     local worldCellX = (cellX - 1) * cellSize
     local worldCellY = (cellY - 1) * cellSize
-    print("World position of cell:", worldCellX, worldCellY)
-    
-    -- Calculate screen position of the cell for verification
-    local screenX, screenY = self.camera:worldToScreen(worldCellX, worldCellY)
-    print("Screen position of cell:", screenX, screenY)
-    print("Distance from mouse:", math.sqrt((screenX - self.mouseX)^2 + (screenY - self.mouseY)^2))
-    print("================================")
     
     -- Place cells in a circle around the cursor
     local cellsPlaced = 0  -- Count how many cells we place
@@ -265,7 +245,6 @@ function InputHandler:placeCells(worldX, worldY)
         end
     end
     
-    print("Cells placed:", cellsPlaced)
     
     -- Update the cell data image
     self.cellWorld:updateCellDataImage()
@@ -281,13 +260,10 @@ function InputHandler:cycleBrushSize()
     -- Cycle through the sizes
     if self.brushSize == smallSize then
         self.brushSize = standardSize
-        print("Brush size: Standard")
     elseif self.brushSize == standardSize then
         self.brushSize = largeSize
-        print("Brush size: Large")
     else
         self.brushSize = smallSize
-        print("Brush size: Small")
     end
 end
 
@@ -296,7 +272,6 @@ function InputHandler:mousepressed(x, y, button)
     self.mouseX = x
     self.mouseY = y
     
-    print("Mouse button pressed:", button)  -- Debug output to see which button is being pressed
     
     if button == 1 then  -- Left mouse button
         self.mouseDown = true
@@ -308,9 +283,6 @@ function InputHandler:mousepressed(x, y, button)
             -- Convert screen coordinates to world coordinates
             local worldX, worldY = self.camera:screenToWorld(x, y)
             
-            -- Debug output
-            print("Mouse pressed at screen coordinates:", x, y)
-            print("Converted to world coordinates:", worldX, worldY)
             
             -- Place cells at the cursor position
             self:placeCells(worldX, worldY)
@@ -329,7 +301,6 @@ function InputHandler:mousepressed(x, y, button)
             self.camera:disableFollowTarget()
         end
         
-        print("Camera control activated with button:", button)
     end
 end
 
@@ -347,7 +318,6 @@ function InputHandler:mousereleased(x, y, button)
     elseif button == 3 then  -- Middle mouse button
         -- End camera control
         self.cameraControl.active = false
-        print("Camera control deactivated with button:", button)
     end
     -- Right mouse button (2) doesn't need any special handling on release
     -- since it's just used for cycling brush sizes on press
@@ -366,56 +336,42 @@ function InputHandler:keypressed(key)
     -- Material selection
     if key == "1" then
         self.currentMaterial = 20  -- Sand
-        print("Material: Sand")
     elseif key == "2" then
         self.currentMaterial = 30  -- Water
-        print("Material: Water")
     elseif key == "3" then
         self.currentMaterial = 40  -- Fire
-        print("Material: Fire")
     elseif key == "4" then
         self.currentMaterial = 10  -- Stone
-        print("Material: Stone")
     elseif key == "5" then
         self.currentMaterial = 11  -- Dirt
-        print("Material: Dirt")
     elseif key == "tab" then
         -- Cycle through materials (since middle mouse button now pans the camera)
         if self.currentMaterial == 20 then -- Sand -> Water
             self.currentMaterial = 30
-            print("Material: Water")
         elseif self.currentMaterial == 30 then -- Water -> Fire
             self.currentMaterial = 40
-            print("Material: Fire")
         elseif self.currentMaterial == 40 then -- Fire -> Stone
             self.currentMaterial = 10
-            print("Material: Stone")
         elseif self.currentMaterial == 10 then -- Stone -> Dirt
             self.currentMaterial = 11
-            print("Material: Dirt")
         elseif self.currentMaterial == 11 then -- Dirt -> Sand
             self.currentMaterial = 20
-            print("Material: Sand")
         else
             self.currentMaterial = 20
-            print("Material: Sand")
         end
     end
     
     -- Brush size
     if key == "[" and self.brushSize > 1 then
         self.brushSize = self.brushSize - 1
-        print("Brush size:", self.brushSize)
     elseif key == "]" and self.brushSize < 10 then
         self.brushSize = self.brushSize + 1
-        print("Brush size:", self.brushSize)
     end
     
     -- Clear all cells with 'c' key
     if key == "c" and love.keyboard.isDown("lctrl") then
         if self.cellWorld then
             self.cellWorld:clear()
-            print("Cleared all cells")
         end
     end
 end
@@ -499,96 +455,8 @@ function InputHandler:draw()
     -- Draw the custom cursor
     self:drawCustomCursor()
     
-    -- Draw debugging information
-    self:drawDebugInfo()
 end
 
--- Draw debugging information
-function InputHandler:drawDebugInfo()
-    -- Only draw if we have camera and cellWorld
-    if not self.camera or not self.cellWorld then return end
-    
-    -- Get mouse position in world coordinates
-    local worldX, worldY = self.camera:screenToWorld(self.mouseX, self.mouseY)
-    
-    -- Convert world coordinates to cell coordinates
-    -- Need to account for the fact that cell coordinates (1,1) correspond to world coordinates (0,0)
-    local cellSize = self.cellWorld.cellSize
-    local cellX = math.floor(worldX / cellSize) + 1
-    local cellY = math.floor(worldY / cellSize) + 1
-    
-    -- Draw a visual indicator at the target cell position
-    love.graphics.setColor(1, 0, 0, 0.7)  -- Red with transparency
-    
-    -- Convert cell coordinates back to world coordinates, then to screen coordinates for visualization
-    -- Need to account for the fact that cell coordinates (1,1) correspond to world coordinates (0,0)
-    local worldCellX = (cellX - 1) * self.cellWorld.cellSize
-    local worldCellY = (cellY - 1) * self.cellWorld.cellSize
-    local targetScreenX, targetScreenY = self.camera:worldToScreen(worldCellX, worldCellY)
-    
-    -- Draw a crosshair at the target position
-    local crosshairSize = 10
-    love.graphics.setLineWidth(2)
-    love.graphics.line(
-        targetScreenX - crosshairSize, targetScreenY,
-        targetScreenX + crosshairSize, targetScreenY
-    )
-    love.graphics.line(
-        targetScreenX, targetScreenY - crosshairSize,
-        targetScreenX, targetScreenY + crosshairSize
-    )
-    
-    -- Draw the brush area
-    love.graphics.setColor(1, 1, 0, 0.3)  -- Yellow with transparency
-    local brushRadius = self.brushSize * self.cellWorld.cellSize * self.camera.scale
-    love.graphics.circle("line", targetScreenX, targetScreenY, brushRadius)
-    
-    -- Draw a blue crosshair at the mouse position
-    love.graphics.setColor(0, 0, 1, 0.7)  -- Blue with transparency
-    love.graphics.line(
-        self.mouseX - crosshairSize, self.mouseY,
-        self.mouseX + crosshairSize, self.mouseY
-    )
-    love.graphics.line(
-        self.mouseX, self.mouseY - crosshairSize,
-        self.mouseX, self.mouseY + crosshairSize
-    )
-    
-    -- Draw a green crosshair at the world position
-    local worldScreenX, worldScreenY = self.camera:worldToScreen(worldX, worldY)
-    love.graphics.setColor(0, 1, 0, 0.7)  -- Green with transparency
-    love.graphics.line(
-        worldScreenX - crosshairSize, worldScreenY,
-        worldScreenX + crosshairSize, worldScreenY
-    )
-    love.graphics.line(
-        worldScreenX, worldScreenY - crosshairSize,
-        worldScreenX, worldScreenY + crosshairSize
-    )
-    
-    -- Draw text with coordinates
-    love.graphics.setColor(1, 1, 1, 1)
-    local debugText = string.format(
-        "Mouse (blue): %.1f, %.1f\n" ..
-        "World (green): %.1f, %.1f\n" ..
-        "Cell: %d, %d\n" ..
-        "Cell World Pos (red): %.1f, %.1f\n" ..
-        "Brush: %d\n" ..
-        "Cell Size: %d\n" ..
-        "Camera Scale: %.2f",
-        self.mouseX, self.mouseY,
-        worldX, worldY,
-        cellX, cellY,
-        worldCellX, worldCellY,
-        self.brushSize,
-        self.cellWorld.cellSize,
-        self.camera.scale
-    )
-    love.graphics.print(debugText, 10, 100)
-    
-    -- Reset color
-    love.graphics.setColor(1, 1, 1, 1)
-end
 
 -- Draw the custom cursor
 function InputHandler:drawCustomCursor()

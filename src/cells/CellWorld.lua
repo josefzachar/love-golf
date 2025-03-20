@@ -603,17 +603,6 @@ function CellWorld:draw()
     love.graphics.setColor(0.5, 0.5, 0.5, 1)
     love.graphics.rectangle("line", 0, 0, self.width * self.cellSize, self.height * self.cellSize)
     
-    -- Draw a debug grid to help track cell generation
-    love.graphics.setColor(0.3, 0.3, 0.3, 0.3)
-    
-    -- Draw grid lines
-    for y = 0, self.height, 1 do
-        love.graphics.line(0, y * self.cellSize, self.width * self.cellSize, y * self.cellSize)
-    end
-    
-    for x = 0, self.width, 1 do
-        love.graphics.line(x * self.cellSize, 0, x * self.cellSize, self.height * self.cellSize)
-    end
 end
 
 -- Get the number of active (non-empty) cells

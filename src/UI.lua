@@ -622,9 +622,6 @@ end
 function UI:mousepressed(x, y, button)
     if button ~= 1 then return false end
     
-    -- Debug output
-    print("UI:mousepressed", x, y, button)
-    print("Current game state:", self.gameState:getState())
     
     -- Check which UI elements to check based on game state
     local state = self.gameState:getState()
@@ -632,32 +629,23 @@ function UI:mousepressed(x, y, button)
     
     if state == "menu" then
         elements = self.elements.menu
-        print("Checking menu elements")
     elseif state == "playing" then
         elements = self.elements.hud
-        print("Checking HUD elements")
     elseif state == "paused" then
         elements = self.elements.pause
-        print("Checking pause elements")
     elseif state == "level_complete" then
         elements = self.elements.levelComplete
-        print("Checking level complete elements")
     elseif state == "game_over" then
         elements = self.elements.gameOver
-        print("Checking game over elements")
     end
     
     -- Check for button clicks
     for name, element in pairs(elements) do
         if element.type == "button" then
-            print("Checking button:", name, element.x, element.y, element.width, element.height)
             if x >= element.x and x <= element.x + element.width and
                y >= element.y and y <= element.y + element.height then
-                print("Button clicked:", name)
                 if element.onClick then
-                    print("Executing onClick for:", name)
                     element.onClick()
-                    print("After onClick, game state:", self.gameState:getState())
                 end
                 return true
             end
