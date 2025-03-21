@@ -9,7 +9,7 @@ function love.conf(t)
     t.window.resizable = true              -- Let the window be user-resizable
     t.window.minwidth = 800                -- Minimum window width
     t.window.minheight = 600               -- Minimum window height
-    t.window.vsync = 1                     -- Vertical sync mode (1 = VSync, 0 = No VSync)
+    t.window.vsync = 0                     -- Vertical sync mode (1 = VSync, 0 = No VSync)
     
     t.modules.audio = true                 -- Enable the audio module
     t.modules.data = true                  -- Enable the data module

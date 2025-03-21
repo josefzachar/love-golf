@@ -21,16 +21,25 @@ local ui
 local cellShader
 
 -- Constants
-local CELL_SIZE = 8  -- Size of each cell in pixels (4x larger)
-local WORLD_WIDTH = 200  -- Width in cells (doubled)
-local WORLD_HEIGHT = 150  -- Height in cells (doubled)
+local CELL_SIZE = 8  -- Size of each cell in pixels
+local WORLD_WIDTH = 200  -- Width in cells
+local WORLD_HEIGHT = 150  -- Height in cells
 local GRAVITY = 0.2  -- Gravity strength
 local SIMULATION_SPEED = 0.5  -- Simulation speed multiplier (lower = slower)
+
+-- Performance settings
+local USE_VSYNC = false  -- Disable VSync for higher FPS
+local LIMIT_FPS = false  -- Whether to limit FPS
+local MAX_FPS = 120      -- Maximum FPS if limited
+local lastTime = 0       -- For FPS limiting
 
 -- Initialize the game
 function love.load()
     -- Set default filter mode for crisp pixel art
     love.graphics.setDefaultFilter("nearest", "nearest")
+    
+    -- Disable VSync for higher performance
+    love.window.setVSync(USE_VSYNC and 1 or 0)
     
     -- Seed the random number generator
     math.randomseed(os.time())
@@ -71,24 +80,57 @@ end
 
 -- Update game state
 function love.update(dt)
+    -- FPS limiting if enabled
+    if LIMIT_FPS then
+        local currentTime = love.timer.getTime()
+        local targetDelta = 1 / MAX_FPS
+        
+        if currentTime - lastTime < targetDelta then
+            -- Skip update to limit FPS
+            return
+        end
+        
+        lastTime = currentTime
+    end
+    
     -- Cap delta time to prevent physics issues on lag spikes
     local cappedDt = math.min(dt, 1/30)
     
     -- Apply simulation speed to cell world update
     local simulationDt = cappedDt * SIMULATION_SPEED
     
-    -- Update modules
+    -- Update modules in order of importance
     inputHandler:update(cappedDt)
     cellWorld:update(simulationDt, GRAVITY)  -- Slow down cell simulation
     ballManager:update(cappedDt)
     camera:update(cappedDt, ballManager:getCurrentBall())
-    gameState:update(cappedDt)
-    ui:update(cappedDt)
+    
+    -- Initialize frame counter if it doesn't exist
+    if not _G.frameCount then
+        _G.frameCount = 0
+    end
+    
+    -- Update less critical components less frequently when FPS is low
+    local currentFPS = love.timer.getFPS()
+    if currentFPS < 45 then
+        -- Only update UI and game state every other frame when FPS is low
+        if _G.frameCount % 2 == 0 then
+            gameState:update(cappedDt * 2)  -- Compensate for less frequent updates
+            ui:update(cappedDt * 2)         -- Compensate for less frequent updates
+        end
+    else
+        -- Normal updates when FPS is good
+        gameState:update(cappedDt)
+        ui:update(cappedDt)
+    end
     
     -- Check win condition
     if ballManager:isInHole() and not gameState:isTransitioning() then
         gameState:startLevelTransition()
     end
+    
+    -- Increment frame counter
+    _G.frameCount = _G.frameCount + 1
 end
 
 -- Draw the game
@@ -111,7 +153,7 @@ function love.draw()
     -- Draw input handler elements (cursor and material indicator)
     inputHandler:draw()
     
-    -- Always display FPS counter
+    -- Always display FPS counter and performance info
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.print("FPS: " .. love.timer.getFPS(), 10, 10)
     
@@ -119,6 +161,7 @@ function love.draw()
     love.graphics.print("Cells: " .. cellWorld:getActiveCellCount(), 10, 30)
     love.graphics.print("Ball Type: " .. ballManager:getCurrentBallType(), 10, 50)
     love.graphics.print("Sim Speed: " .. SIMULATION_SPEED, 10, 70)
+    love.graphics.print("VSync: " .. (USE_VSYNC and "ON" or "OFF"), 10, 90)
 end
 
 -- Input callbacks
@@ -190,6 +233,15 @@ function love.keypressed(key)
     elseif key == "pagedown" then
         -- Decrease simulation speed
         SIMULATION_SPEED = math.max(SIMULATION_SPEED - 0.1, 0.1)
+    -- Performance controls
+    elseif key == "v" then
+        -- Toggle VSync
+        USE_VSYNC = not USE_VSYNC
+        love.window.setVSync(USE_VSYNC and 1 or 0)
+    elseif key == "f" then
+        -- Toggle FPS limiting
+        LIMIT_FPS = not LIMIT_FPS
+        lastTime = love.timer.getTime()
     -- Camera reset
     elseif key == "c" then
         -- Reset camera position and scale
@@ -225,8 +277,8 @@ function createEmptyCanvas()
     gameState:setCurrentLevel(0)  -- Special level number for empty canvas
     cellWorld:clear()
     
-    -- Create a border around the world with subtle color variations
-    for x = 1, WORLD_WIDTH do
+    -- Create a container with walls in the same position as level 2
+    for x = 10, 90 do
         -- Subtle stone color variations (shades of gray)
         local stoneBase = 0.5  -- Base brightness
         local variation = 0.15  -- Subtle variation
@@ -248,11 +300,11 @@ function createEmptyCanvas()
         }
         
         -- Top and bottom walls
-        cellWorld:setCell(x, 1, 10, stoneColor1)  -- Stone (top)
-        cellWorld:setCell(x, WORLD_HEIGHT, 10, stoneColor2)  -- Stone (bottom)
+        cellWorld:setCell(x, 10, 10, stoneColor1)  -- Stone (top)
+        cellWorld:setCell(x, 65, 10, stoneColor2)  -- Stone (bottom)
     end
     
-    for y = 1, WORLD_HEIGHT do
+    for y = 10, 65 do
         -- Subtle stone color variations (shades of gray)
         local stoneBase = 0.5  -- Base brightness
         local variation = 0.15  -- Subtle variation
@@ -274,21 +326,21 @@ function createEmptyCanvas()
         }
         
         -- Left and right walls
-        cellWorld:setCell(1, y, 10, stoneColor1)  -- Stone (left)
-        cellWorld:setCell(WORLD_WIDTH, y, 10, stoneColor2)  -- Stone (right)
+        cellWorld:setCell(10, y, 10, stoneColor1)  -- Stone (left)
+        cellWorld:setCell(90, y, 10, stoneColor2)  -- Stone (right)
     end
     
-    -- Set up a ball in the center
-    local startPosition = {x = WORLD_WIDTH / 2, y = WORLD_HEIGHT / 2}
+    -- Set up a ball in the center of the container
+    local startPosition = {x = 50, y = 40}
     ballManager:reset(startPosition, 1)  -- Standard ball
     
-    -- Focus camera on the center
-    camera:focusOn(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)
+    -- Focus camera on the center of the visible area (same as level 2)
+    camera:focusOn(50, 40)
     
-    -- Set appropriate camera scale for the empty canvas
+    -- Set appropriate camera scale for the empty canvas (using the same dimensions as level 2)
     local windowWidth, windowHeight = love.graphics.getDimensions()
-    local levelWidth = WORLD_WIDTH * CELL_SIZE
-    local levelHeight = WORLD_HEIGHT * CELL_SIZE
+    local levelWidth = 80 * CELL_SIZE  -- Match level 2 container width
+    local levelHeight = 55 * CELL_SIZE  -- Match level 2 container height
     local scaleX = windowWidth / levelWidth
     local scaleY = windowHeight / levelHeight
     local scale = math.min(scaleX, scaleY) * 0.8  -- Use 80% of the calculated scale for some margin
@@ -302,8 +354,8 @@ function generateRandomLevel()
     
     local CellTypes = require("src.cells.CellTypes")
     
-    -- Create a border around the world with subtle color variations
-    for x = 1, WORLD_WIDTH do
+    -- Create a container with walls in the same position as level 2
+    for x = 10, 90 do
         -- Subtle stone color variations (shades of gray)
         local stoneBase = 0.5  -- Base brightness
         local variation = 0.15  -- Subtle variation
@@ -325,11 +377,11 @@ function generateRandomLevel()
         }
         
         -- Top and bottom walls
-        cellWorld:setCell(x, 1, CellTypes.STONE, stoneColor1)
-        cellWorld:setCell(x, WORLD_HEIGHT, CellTypes.STONE, stoneColor2)
+        cellWorld:setCell(x, 10, CellTypes.STONE, stoneColor1)
+        cellWorld:setCell(x, 65, CellTypes.STONE, stoneColor2)
     end
     
-    for y = 1, WORLD_HEIGHT do
+    for y = 10, 65 do
         -- Subtle stone color variations (shades of gray)
         local stoneBase = 0.5  -- Base brightness
         local variation = 0.15  -- Subtle variation
@@ -351,20 +403,20 @@ function generateRandomLevel()
         }
         
         -- Left and right walls
-        cellWorld:setCell(1, y, CellTypes.STONE, stoneColor1)
-        cellWorld:setCell(WORLD_WIDTH, y, CellTypes.STONE, stoneColor2)
+        cellWorld:setCell(10, y, CellTypes.STONE, stoneColor1)
+        cellWorld:setCell(90, y, CellTypes.STONE, stoneColor2)
     end
     
     -- Generate terrain
     -- Ground layer
-    local groundHeight = WORLD_HEIGHT - 20
-    for x = 2, WORLD_WIDTH - 1 do
+    local groundHeight = 55  -- Lower than before to fit in the container
+    for x = 11, 89 do
         -- Vary the ground height to create hills and valleys
         local heightVariation = math.floor(math.sin(x / 10) * 5)
         local currentGroundHeight = groundHeight + heightVariation
         
         -- Create dirt with grass on top
-        for y = currentGroundHeight, WORLD_HEIGHT - 1 do
+        for y = currentGroundHeight, 64 do
             -- Subtle dirt color variations (shades of brown)
             local dirtBase = 0.6  -- Base brightness
             local variation = 0.15  -- Subtle variation
@@ -399,7 +451,7 @@ function generateRandomLevel()
     
     -- Add some random stone formations
     for i = 1, 5 do
-        local centerX = math.random(20, WORLD_WIDTH - 20)
+        local centerX = math.random(20, 80)
         local centerY = math.random(groundHeight - 10, groundHeight - 5)
         local radius = math.random(3, 8)
         
@@ -408,7 +460,7 @@ function generateRandomLevel()
                 local dx = x - centerX
                 local dy = y - centerY
                 if dx*dx + dy*dy <= radius*radius and 
-                   x > 1 and x < WORLD_WIDTH and y > 1 and y < WORLD_HEIGHT then
+                   x > 10 and x < 90 and y > 10 and y < 65 then
                     -- Subtle stone color variations (shades of gray)
                     local stoneBase = 0.5  -- Base brightness
                     local variation = 0.2  -- Subtle variation
@@ -429,7 +481,7 @@ function generateRandomLevel()
     -- Add some water pools
     for i = 1, 3 do
         local poolWidth = math.random(10, 20)
-        local poolX = math.random(10, WORLD_WIDTH - poolWidth - 10)
+        local poolX = math.random(15, 85 - poolWidth)
         local poolDepth = math.random(3, 6)
         local poolY = groundHeight - poolDepth
         
@@ -465,7 +517,7 @@ function generateRandomLevel()
     
     -- Add some sand piles
     for i = 1, 4 do
-        local pileX = math.random(10, WORLD_WIDTH - 10)
+        local pileX = math.random(15, 85)
         local pileY = groundHeight - math.random(1, 3)
         local pileSize = math.random(5, 10)
         
@@ -473,7 +525,7 @@ function generateRandomLevel()
             local x = pileX + math.random(-pileSize, pileSize)
             local y = pileY + math.random(-pileSize/2, pileSize/2)
             
-            if x > 1 and x < WORLD_WIDTH and y > 1 and y < WORLD_HEIGHT and
+            if x > 10 and x < 90 and y > 10 and y < 65 and
                cellWorld:getCell(x, y) == CellTypes.EMPTY then
                 -- Subtle sand color variations (shades of tan)
                 local sandBase = 0.85  -- Base brightness
@@ -492,18 +544,18 @@ function generateRandomLevel()
     end
     
     -- Set up a ball at a good starting position
-    local startX = math.random(20, WORLD_WIDTH - 20)
-    local startY = 20  -- Start high up
+    local startX = math.random(20, 80)
+    local startY = 20  -- Start high up but within the container
     local startPosition = {x = startX, y = startY}
     ballManager:reset(startPosition, 1)  -- Standard ball
     
-    -- Focus camera on the ball
-    camera:focusOn(startX, startY)
+    -- Focus camera on the center of the visible area (same as level 2)
+    camera:focusOn(50, 40)
     
-    -- Set appropriate camera scale for the random level
+    -- Set appropriate camera scale for the random level (using the same dimensions as level 2)
     local windowWidth, windowHeight = love.graphics.getDimensions()
-    local levelWidth = WORLD_WIDTH * CELL_SIZE
-    local levelHeight = WORLD_HEIGHT * CELL_SIZE
+    local levelWidth = 80 * CELL_SIZE  -- Match level 2 container width
+    local levelHeight = 55 * CELL_SIZE  -- Match level 2 container height
     local scaleX = windowWidth / levelWidth
     local scaleY = windowHeight / levelHeight
     local scale = math.min(scaleX, scaleY) * 0.8  -- Use 80% of the calculated scale for some margin
