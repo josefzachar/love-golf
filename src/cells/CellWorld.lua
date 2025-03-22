@@ -661,7 +661,8 @@ end
 -- Check if a position is solid (for collision detection)
 function CellWorld:isSolid(x, y)
     local cellType = self:getCell(x, y)
-    return CellTypes.isSolid(cellType)
+    -- Consider both solid and particle materials as solid for collision detection
+    return CellTypes.isSolid(cellType) or CellTypes.isParticle(cellType)
 end
 
 -- Check if a position is liquid (for physics behavior)

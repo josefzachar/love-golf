@@ -1,4 +1,5 @@
--- BallManager.lua - Manages the golf balls and their physics
+-- BallManager.lua - Manages the ball and its physics
+-- Circle physics with cell-based visual representation
 
 local BallTypes = require("src.balls.BallTypes")
 
@@ -15,47 +16,40 @@ function BallManager.new(cellWorld)
     -- Current ball properties
     self.position = {x = 0, y = 0}
     self.velocity = {x = 0, y = 0}
-    self.type = BallTypes.STANDARD
-    self.radius = 1.5  -- Ball radius in cells (smaller for better collision)
+    self.type = BallTypes.BALL
+    self.radius = 0.5  -- Ball radius in cells (half a cell)
     self.active = false
     self.inHole = false
     
     -- Physics constants
-    self.gravity = 0.2
+    self.gravity = 0.5  -- Increased gravity for more noticeable effect
     self.friction = 0.98
     self.bounceFactor = 0.7
-    self.maxVelocity = 10
+    self.maxVelocity = 20
+    self.restThreshold = 0.1 -- Threshold for considering the ball at rest
     
     -- Shot properties
     self.shotPower = 0
     self.shotAngle = 0
     self.isAiming = false
-    self.maxPower = 20
+    self.maxPower = 10
     
-    -- Special abilities cooldowns
-    self.abilityCooldown = 0
+    -- Debug flag
+    self.debug = true
     
     return self
 end
 
 -- Reset the ball to a starting position
-function BallManager:reset(position, ballType)
+function BallManager:reset(position, ballType, initialVelocity)
     self.position = {x = position.x, y = position.y}
-    self.velocity = {x = 0, y = 0}
-    self.type = ballType or BallTypes.STANDARD
+    self.velocity = initialVelocity or {x = 0, y = 0}
+    self.type = BallTypes.BALL  -- Always use BALL type
     self.active = true
     self.inHole = false
-    self.abilityCooldown = 0
     
-    -- Adjust physics based on ball type
-    if self.type == BallTypes.STICKY then
-        self.bounceFactor = 0.3
-    elseif self.type == BallTypes.EXPLOSIVE then
-        self.bounceFactor = 0.8
-    elseif self.type == BallTypes.MINING then
-        self.bounceFactor = 0.6
-    else
-        self.bounceFactor = 0.7
+    if self.debug then
+        print("Ball reset at position: " .. self.position.x .. ", " .. self.position.y)
     end
 end
 
@@ -66,6 +60,10 @@ function BallManager:startAiming()
     self.isAiming = true
     self.shotPower = 0
     self.shotAngle = 0
+    
+    if self.debug then
+        print("Started aiming")
+    end
 end
 
 -- Update the aim parameters
@@ -73,9 +71,11 @@ function BallManager:updateAim(mouseX, mouseY)
     if not self.isAiming then return end
     
     -- Calculate angle and power based on mouse position relative to ball
-    local dx = mouseX - self.position.x * self.cellWorld.cellSize
-    local dy = mouseY - self.position.y * self.cellWorld.cellSize
+    local cellSize = self.cellWorld.cellSize
+    local dx = mouseX - self.position.x * cellSize
+    local dy = mouseY - self.position.y * cellSize
     
+    -- Direction from ball to current mouse position
     self.shotAngle = math.atan2(dy, dx)
     
     -- Calculate power based on distance, with a maximum
@@ -85,13 +85,19 @@ end
 
 -- Execute the shot
 function BallManager:shoot()
-    if not self.isAiming or not self.active or self.inHole then return end
+    if not self.isAiming or not self.active or self.inHole then return false end
     
     -- Apply velocity based on shot power and angle
     self.velocity.x = -math.cos(self.shotAngle) * self.shotPower
     self.velocity.y = -math.sin(self.shotAngle) * self.shotPower
     
     self.isAiming = false
+    
+    if self.debug then
+        print("Shot executed with velocity: " .. self.velocity.x .. ", " .. self.velocity.y)
+    end
+    
+    return true
 end
 
 -- Cancel the current shot
@@ -99,56 +105,19 @@ function BallManager:cancelShot()
     self.isAiming = false
 end
 
--- Use the ball's special ability
-function BallManager:useAbility()
-    if not self.active or self.inHole or self.abilityCooldown > 0 then return false end
-    
-    -- Different abilities based on ball type
-    if self.type == BallTypes.EXPLOSIVE then
-        -- Explosive ball creates an explosion
-        self.cellWorld:explode(self.position.x, self.position.y, 15)
-        self.abilityCooldown = 60  -- 1 second at 60 FPS
-        return true
-    elseif self.type == BallTypes.MINING then
-        -- Mining ball can dig through materials
-        local digRadius = 8
-        self.cellWorld:drawCircle(self.position.x, self.position.y, digRadius, 0)  -- Clear cells
-        self.abilityCooldown = 120  -- 2 seconds at 60 FPS
-        return true
-    elseif self.type == BallTypes.STICKY then
-        -- Sticky ball can create a platform
-        local platformRadius = 5
-        for y = -1, 1 do
-            for x = -platformRadius, platformRadius do
-                self.cellWorld:setCell(
-                    math.floor(self.position.x) + x,
-                    math.floor(self.position.y) + y + 3,
-                    10  -- Stone
-                )
-            end
-        end
-        self.cellWorld:updateCellDataImage()
-        self.abilityCooldown = 180  -- 3 seconds at 60 FPS
-        return true
-    end
-    
-    return false
-end
-
 -- Update the ball physics
 function BallManager:update(dt)
     if not self.active or self.inHole then return end
-    
-    -- Update ability cooldown
-    if self.abilityCooldown > 0 then
-        self.abilityCooldown = self.abilityCooldown - 1
-    end
     
     -- If aiming, don't update physics
     if self.isAiming then return end
     
     -- Apply gravity
     self.velocity.y = self.velocity.y + self.gravity
+    
+    if self.debug then
+        print("Ball velocity after gravity: " .. self.velocity.x .. ", " .. self.velocity.y)
+    end
     
     -- Cap velocity
     local speed = math.sqrt(self.velocity.x^2 + self.velocity.y^2)
@@ -157,15 +126,23 @@ function BallManager:update(dt)
         self.velocity.y = self.velocity.y * (self.maxVelocity / speed)
     end
     
-    -- Check for collisions and update position
-    self:updatePosition(dt)
+    -- Store old position for collision detection
+    local oldX = self.position.x
+    local oldY = self.position.y
+    
+    -- Update position
+    self.position.x = self.position.x + self.velocity.x * dt
+    self.position.y = self.position.y + self.velocity.y * dt
+    
+    -- Check for collisions
+    self:handleCollisions(oldX, oldY, dt)
     
     -- Apply friction
     self.velocity.x = self.velocity.x * self.friction
     self.velocity.y = self.velocity.y * self.friction
     
     -- Check if ball is almost stopped
-    if math.abs(self.velocity.x) < 0.01 and math.abs(self.velocity.y) < 0.01 then
+    if speed < self.restThreshold then
         self.velocity.x = 0
         self.velocity.y = 0
     end
@@ -175,206 +152,134 @@ function BallManager:update(dt)
         self.inHole = true
         self.active = false
     end
+    
+    if self.debug then
+        print("Ball position after update: " .. self.position.x .. ", " .. self.position.y)
+    end
 end
 
--- Update position with collision detection
-function BallManager:updatePosition(dt)
-    -- Calculate new position
-    local newX = self.position.x + self.velocity.x * dt
-    local newY = self.position.y + self.velocity.y * dt
-    
+-- Handle collisions with solid cells and boundaries
+function BallManager:handleCollisions(oldX, oldY, dt)
     -- Check for collisions with solid cells
-    local collided = false
+    local newCellX = math.floor(self.position.x)
+    local newCellY = math.floor(self.position.y)
     
-    -- More thorough collision detection - check the entire ball area
-    local steps = 8  -- Check in 8 directions around the ball
-    local radius = self.radius
-    
-    -- First check if the new position would be inside a solid cell
-    for angle = 0, math.pi * 2, math.pi * 2 / steps do
-        local checkX = newX + math.cos(angle) * radius
-        local checkY = newY + math.sin(angle) * radius
-        
-        if self.cellWorld:isSolid(checkX, checkY) then
-            -- Find the normal vector for the collision
-            local normalX = checkX - newX
-            local normalY = checkY - newY
-            local normalLength = math.sqrt(normalX * normalX + normalY * normalY)
-            
-            if normalLength > 0 then
-                normalX = normalX / normalLength
-                normalY = normalY / normalLength
-                
-                -- Calculate reflection vector
-                local dotProduct = self.velocity.x * normalX + self.velocity.y * normalY
-                
-                -- Apply bounce
-                self.velocity.x = self.velocity.x - 2 * dotProduct * normalX
-                self.velocity.y = self.velocity.y - 2 * dotProduct * normalY
-                
-                -- Apply bounce factor
-                self.velocity.x = self.velocity.x * self.bounceFactor
-                self.velocity.y = self.velocity.y * self.bounceFactor
-                
-                -- Adjust position to prevent getting stuck
-                newX = self.position.x
-                newY = self.position.y
-                
-                collided = true
-                break
-            end
-        end
-    end
-    
-    -- If no collision was detected with the full check, do a simpler check for horizontal and vertical movement
-    if not collided then
-        -- Check horizontal movement
-        if self.velocity.x ~= 0 then
-            local checkX = newX + (self.velocity.x > 0 and radius or -radius)
-            
-            -- Check for solid cells in the path
-            if self.cellWorld:isSolid(checkX, self.position.y) then
-                -- Collision with solid cell
-                collided = true
-                
-                -- Bounce horizontally
-                self.velocity.x = -self.velocity.x * self.bounceFactor
-                
-                -- Adjust position to prevent getting stuck
-                if self.velocity.x > 0 then
-                    newX = math.floor(checkX) - radius
-                else
-                    newX = math.ceil(checkX) + radius
-                end
-            end
+    -- Check if the new position would be inside a solid cell
+    if self.cellWorld:isSolid(newCellX, newCellY) then
+        if self.debug then
+            print("Collision detected with solid cell at: " .. newCellX .. ", " .. newCellY)
         end
         
-        -- Check vertical movement
-        if self.velocity.y ~= 0 then
-            local checkY = newY + (self.velocity.y > 0 and radius or -radius)
+        -- Find which direction to bounce
+        local oldCellX = math.floor(oldX)
+        local oldCellY = math.floor(oldY)
+        
+        -- Horizontal collision
+        if oldCellX ~= newCellX and self.cellWorld:isSolid(newCellX, oldCellY) then
+            self.velocity.x = -self.velocity.x * self.bounceFactor
+            self.position.x = oldX  -- Revert to old position
             
-            -- Check for solid cells in the path
-            if self.cellWorld:isSolid(self.position.x, checkY) then
-                -- Collision with solid cell
-                collided = true
-                
-                -- Bounce vertically
-                self.velocity.y = -self.velocity.y * self.bounceFactor
-                
-                -- Adjust position to prevent getting stuck
-                if self.velocity.y > 0 then
-                    newY = math.floor(checkY) - radius
-                else
-                    newY = math.ceil(checkY) + radius
-                end
+            if self.debug then
+                print("Horizontal collision, new velocity: " .. self.velocity.x .. ", " .. self.velocity.y)
+            end
+        -- Vertical collision
+        elseif oldCellY ~= newCellY and self.cellWorld:isSolid(oldCellX, newCellY) then
+            self.velocity.y = -self.velocity.y * self.bounceFactor
+            self.position.y = oldY  -- Revert to old position
+            
+            if self.debug then
+                print("Vertical collision, new velocity: " .. self.velocity.x .. ", " .. self.velocity.y)
+            end
+        -- Diagonal collision
+        else
+            self.velocity.x = -self.velocity.x * self.bounceFactor
+            self.velocity.y = -self.velocity.y * self.bounceFactor
+            self.position.x = oldX  -- Revert to old position
+            self.position.y = oldY  -- Revert to old position
+            
+            if self.debug then
+                print("Diagonal collision, new velocity: " .. self.velocity.x .. ", " .. self.velocity.y)
             end
         end
     end
     
     -- Check for liquid effects
-    local isInLiquid = false
-    for y = newY - self.radius/2, newY + self.radius/2, 1 do
-        for x = newX - self.radius/2, newX + self.radius/2, 1 do
-            if self.cellWorld:isLiquid(x, y) then
-                isInLiquid = true
-                break
-            end
-        end
-        if isInLiquid then break end
-    end
-    
-    if isInLiquid then
-        -- Apply additional drag in liquids
+    if self.cellWorld:isLiquid(newCellX, newCellY) then
+        -- Standard liquid physics
         self.velocity.x = self.velocity.x * 0.95
         self.velocity.y = self.velocity.y * 0.95
         
         -- Buoyancy effect
         self.velocity.y = self.velocity.y - 0.1
+        
+        if self.debug then
+            print("In liquid, new velocity: " .. self.velocity.x .. ", " .. self.velocity.y)
+        end
     end
-    
-    -- Special behavior for sticky ball
-    if self.type == BallTypes.STICKY and collided then
-        -- Sticky ball loses more energy on collision
-        self.velocity.x = self.velocity.x * 0.7
-        self.velocity.y = self.velocity.y * 0.7
-    end
-    
-    -- Special behavior for explosive ball
-    if self.type == BallTypes.EXPLOSIVE and collided and 
-       math.sqrt(self.velocity.x^2 + self.velocity.y^2) > 10 then
-        -- Hard collision triggers explosion
-        self:useAbility()
-    end
-    
-    -- Update position
-    self.position.x = newX
-    self.position.y = newY
     
     -- Boundary checking
     local worldWidth = self.cellWorld.width
     local worldHeight = self.cellWorld.height
     
-    if self.position.x < self.radius then
-        self.position.x = self.radius
+    if self.position.x < 1 then
+        self.position.x = 1
         self.velocity.x = -self.velocity.x * self.bounceFactor
-    elseif self.position.x > worldWidth - self.radius then
-        self.position.x = worldWidth - self.radius
+        
+        if self.debug then
+            print("Hit left boundary")
+        end
+    elseif self.position.x > worldWidth - 1 then
+        self.position.x = worldWidth - 1
         self.velocity.x = -self.velocity.x * self.bounceFactor
+        
+        if self.debug then
+            print("Hit right boundary")
+        end
     end
     
-    if self.position.y < self.radius then
-        self.position.y = self.radius
+    if self.position.y < 1 then
+        self.position.y = 1
         self.velocity.y = -self.velocity.y * self.bounceFactor
-    elseif self.position.y > worldHeight - self.radius then
-        self.position.y = worldHeight - self.radius
+        
+        if self.debug then
+            print("Hit top boundary")
+        end
+    elseif self.position.y > worldHeight - 1 then
+        self.position.y = worldHeight - 1
         self.velocity.y = -self.velocity.y * self.bounceFactor
+        
+        if self.debug then
+            print("Hit bottom boundary")
+        end
     end
 end
 
 -- Check if the ball is in a hole
 function BallManager:checkHole()
-    -- Check cells under the ball for a hole
-    for y = self.position.y - 1, self.position.y + 1 do
-        for x = self.position.x - 1, self.position.x + 1 do
-            local cellType = self.cellWorld:getCell(x, y)
-            if cellType == 90 then  -- Hole cell type
-                return true
-            end
-        end
-    end
+    -- Check if the current cell is a hole
+    local cellX = math.floor(self.position.x)
+    local cellY = math.floor(self.position.y)
     
-    return false
+    local cellType = self.cellWorld:getCell(cellX, cellY)
+    return cellType == 90  -- Hole cell type
 end
 
 -- Draw the ball and aiming line
 function BallManager:draw()
     if not self.active then return end
     
+    -- Draw the ball as a square cell
     local cellSize = self.cellWorld.cellSize
     local screenX = self.position.x * cellSize
     local screenY = self.position.y * cellSize
-    local screenRadius = self.radius * cellSize
     
-    -- Draw ball shadow
-    love.graphics.setColor(0, 0, 0, 0.3)
-    love.graphics.circle("fill", screenX + 2, screenY + 2, screenRadius)
-    
-    -- Draw ball based on type
-    if self.type == BallTypes.STANDARD then
-        love.graphics.setColor(1, 1, 1, 1)
-    elseif self.type == BallTypes.EXPLOSIVE then
-        love.graphics.setColor(1, 0.2, 0.2, 1)
-    elseif self.type == BallTypes.STICKY then
-        love.graphics.setColor(0.2, 1, 0.2, 1)
-    elseif self.type == BallTypes.MINING then
-        love.graphics.setColor(0.8, 0.8, 0.2, 1)
-    end
-    
-    love.graphics.circle("fill", screenX, screenY, screenRadius)
-    
-    -- Draw ball highlight
-    love.graphics.setColor(1, 1, 1, 0.7)
-    love.graphics.circle("fill", screenX - screenRadius/3, screenY - screenRadius/3, screenRadius/4)
+    -- Draw a white square at the ball's position
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.rectangle("fill", 
+                           math.floor(screenX - cellSize/2), 
+                           math.floor(screenY - cellSize/2), 
+                           cellSize, 
+                           cellSize)
     
     -- Draw aiming line if aiming
     if self.isAiming then
@@ -411,13 +316,12 @@ function BallManager:draw()
         love.graphics.print(string.format("Power: %.0f%%", powerPercentage * 100), 10, 70)
     end
     
-    -- Draw ability cooldown indicator
-    if self.abilityCooldown > 0 then
-        love.graphics.setColor(1, 0.5, 0, 0.8)
-        love.graphics.print(string.format("Ability: %.1fs", self.abilityCooldown / 60), 10, 90)
-    else
-        love.graphics.setColor(0, 1, 0, 0.8)
-        love.graphics.print("Ability: Ready", 10, 90)
+    -- Draw velocity vector for debugging
+    if self.debug then
+        love.graphics.setColor(1, 0, 0, 0.7)
+        love.graphics.line(screenX, screenY, 
+                          screenX + self.velocity.x * 5, 
+                          screenY + self.velocity.y * 5)
     end
 end
 
@@ -443,7 +347,25 @@ end
 
 -- Check if the ball is moving
 function BallManager:isMoving()
-    return math.abs(self.velocity.x) > 0.01 or math.abs(self.velocity.y) > 0.01
+    -- Use the rest threshold to consider the ball stopped
+    local speed = math.sqrt(self.velocity.x^2 + self.velocity.y^2)
+    return speed > self.restThreshold
+end
+
+-- Check if the ball can be shot
+function BallManager:canShoot()
+    -- Don't allow shooting if in a hole
+    if self.inHole then
+        return false
+    end
+    
+    -- Special case: if at bottom edge allow shooting regardless of velocity
+    if self.position.y >= self.cellWorld.height - 1.5 then
+        return true
+    end
+    
+    -- Use the rest threshold to determine if the ball can be shot
+    return not self:isMoving()
 end
 
 -- Check if the ball is currently aiming

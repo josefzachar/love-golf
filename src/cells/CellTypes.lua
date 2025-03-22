@@ -31,6 +31,7 @@ local CellTypes = {
     -- Game objects
     HOLE = 90,  -- Golf hole
     FLAG = 91,  -- Flag marker
+    BALL = 99,  -- Ball representation in grid
 }
 
 -- Cell type properties
@@ -215,6 +216,15 @@ local properties = {
         destructible = false,
         density = 0,
         defaultColor = {1, 0, 0, 1}
+    },
+    [CellTypes.BALL] = {
+        solid = true,
+        liquid = false,
+        particle = false,
+        flammable = false,
+        destructible = true,
+        density = 2,
+        defaultColor = {0.3, 0.6, 0.9, 1}
     },
 }
 

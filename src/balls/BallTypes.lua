@@ -1,53 +1,20 @@
--- BallTypes.lua - Defines the different types of golf balls
+-- BallTypes.lua - Defines the ball type for the game
 
 local BallTypes = {
-    -- Basic ball types
-    STANDARD = 1,
-    EXPLOSIVE = 2,
-    STICKY = 3,
-    MINING = 4
+    -- Only one ball type - a simple cell in the grid
+    BALL = 99
 }
 
 -- Ball type properties
 local properties = {
-    [BallTypes.STANDARD] = {
-        name = "Standard",
-        description = "A regular golf ball with balanced physics",
+    [BallTypes.BALL] = {
+        name = "Ball Cell",
+        description = "Simple ball represented as a single cell in the grid",
         mass = 1.0,
-        radius = 4,
+        radius = 1,
         bounceFactor = 0.7,
         friction = 0.98,
-        color = {1, 1, 1, 1}
-    },
-    [BallTypes.EXPLOSIVE] = {
-        name = "Explosive",
-        description = "Explodes on impact or when activated, destroying terrain",
-        mass = 1.2,
-        radius = 4,
-        bounceFactor = 0.8,
-        friction = 0.97,
-        color = {1, 0.2, 0.2, 1},
-        ability = "Explode"
-    },
-    [BallTypes.STICKY] = {
-        name = "Sticky",
-        description = "Sticks to surfaces and can create platforms",
-        mass = 0.8,
-        radius = 4,
-        bounceFactor = 0.3,
-        friction = 0.99,
-        color = {0.2, 1, 0.2, 1},
-        ability = "Create Platform"
-    },
-    [BallTypes.MINING] = {
-        name = "Mining",
-        description = "Can dig through terrain when activated",
-        mass = 1.5,
-        radius = 4,
-        bounceFactor = 0.6,
-        friction = 0.96,
-        color = {0.8, 0.8, 0.2, 1},
-        ability = "Dig"
+        color = {1, 1, 1, 1}  -- White color
     }
 }
 
@@ -65,7 +32,7 @@ function BallTypes.getMass(ballType)
 end
 
 function BallTypes.getRadius(ballType)
-    return properties[ballType] and properties[ballType].radius or 4
+    return properties[ballType] and properties[ballType].radius or 1
 end
 
 function BallTypes.getBounceFactor(ballType)
@@ -81,7 +48,7 @@ function BallTypes.getColor(ballType)
 end
 
 function BallTypes.getAbilityName(ballType)
-    return properties[ballType] and properties[ballType].ability or "None"
+    return "None"
 end
 
 -- Get all ball types as a list
@@ -102,15 +69,7 @@ end
 
 -- Get the next ball type in sequence (for cycling through ball types)
 function BallTypes.getNextType(currentType)
-    if currentType == BallTypes.STANDARD then
-        return BallTypes.EXPLOSIVE
-    elseif currentType == BallTypes.EXPLOSIVE then
-        return BallTypes.STICKY
-    elseif currentType == BallTypes.STICKY then
-        return BallTypes.MINING
-    else
-        return BallTypes.STANDARD
-    end
+    return BallTypes.BALL
 end
 
 return BallTypes

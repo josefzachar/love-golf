@@ -10,9 +10,11 @@ level.name = "Material Debug"
 level.description = "Test different material behaviors"
 level.par = 0  -- No par for debug level
 
--- Starting position and ball type (off-screen to hide the ball)
-level.startPosition = {x = -10, y = -10}
-level.ballType = BallTypes.STANDARD
+-- Starting position and ball type
+level.startPosition = {x = 50, y = 20}
+level.ballType = BallTypes.CELL
+level.initialVelocity = {x = 0, y = 0}  -- Start with zero velocity
+level.gravity = 0.5  -- Enable stronger gravity for golf ball
 
 -- Hole position (off-screen)
 level.holePosition = {x = -10, y = -10}

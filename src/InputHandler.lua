@@ -1,4 +1,5 @@
 -- InputHandler.lua - Handles user input for the game
+-- Simplified to only include the standard ball type
 
 local InputHandler = {}
 InputHandler.__index = InputHandler
@@ -24,6 +25,9 @@ function InputHandler.new(ballManager, camera)
     self.currentMaterial = 20  -- Default to sand (CellTypes.SAND)
     self.brushSize = 3
     self.isDrawing = false
+    
+    -- Mode switching
+    self.mode = "spray"  -- "spray" or "shoot"
     
     -- Custom cursor
     self.showCustomCursor = true
@@ -66,10 +70,8 @@ function InputHandler:update(dt)
     local oldMouseX, oldMouseY = self.mouseX, self.mouseY
     self.mouseX, self.mouseY = love.mouse.getPosition()
     
-    -- Mouse movement tracking (no debug output)
-    
-    -- Handle mouse dragging for cell placement
-    if self.mouseDown and not self.cameraControl.active then
+    -- Handle normal mouse dragging for cell placement
+    if self.mouseDown and not self.cameraControl.active and self.mode == "spray" then
         -- Convert screen coordinates to world coordinates
         if self.camera and self.camera.screenToWorld then
             local worldX, worldY = self.camera:screenToWorld(self.mouseX, self.mouseY)
@@ -129,28 +131,19 @@ function InputHandler:handleKeyboardInput(dt)
         end
     end
     
-    -- Check if ball manager is available
-    if self.ballManager then
-        -- Ball ability
-        if self.keys["space"] and self.ballManager.useAbility then
-            self.keys["space"] = false  -- Reset key state to prevent holding
-            self.ballManager:useAbility()
-        end
-        
-        -- Reset camera
-        if self.keys["c"] and self.camera and self.camera.focusOn and self.ballManager.getCurrentBall then
-            self.keys["c"] = false  -- Reset key state
-            local ball = self.ballManager:getCurrentBall()
-            if ball and ball.active then
-                self.camera:focusOn(ball.x, ball.y)
-            end
+    -- Reset camera
+    if self.keys["c"] and self.camera and self.camera.focusOn and self.ballManager.getCurrentBall then
+        self.keys["c"] = false  -- Reset key state
+        local ball = self.ballManager:getCurrentBall()
+        if ball and ball.active then
+            self.camera:focusOn(ball.x, ball.y)
         end
     end
 end
 
 -- Place cells at the given world coordinates
 function InputHandler:placeCells(worldX, worldY)
-    if not self.cellWorld then return end
+    if not self.cellWorld or self.mode ~= "spray" then return end
     
     -- Convert world coordinates to cell coordinates
     -- Need to account for the fact that cell coordinates (1,1) correspond to world coordinates (0,0)
@@ -245,7 +238,6 @@ function InputHandler:placeCells(worldX, worldY)
         end
     end
     
-    
     -- Update the cell data image
     self.cellWorld:updateCellDataImage()
 end
@@ -272,24 +264,34 @@ function InputHandler:mousepressed(x, y, button)
     self.mouseX = x
     self.mouseY = y
     
-    
     if button == 1 then  -- Left mouse button
         self.mouseDown = true
         self.dragStartX = x
         self.dragStartY = y
         
-        -- Check if camera and ball manager are available
-        if self.camera and self.camera.screenToWorld then
+        -- In shoot mode, start aiming with the standard ball
+        if self.mode == "shoot" and self.ballManager then
+            -- Check if the ball can be shot
+            if self.ballManager.canShoot and self.ballManager:canShoot() then
+                -- Start aiming with the standard ball
+                self.ballManager:startAiming()
+                return
+            end
+        end
+        
+        -- In spray mode, place cells
+        if self.mode == "spray" and self.camera and self.camera.screenToWorld then
             -- Convert screen coordinates to world coordinates
             local worldX, worldY = self.camera:screenToWorld(x, y)
-            
             
             -- Place cells at the cursor position
             self:placeCells(worldX, worldY)
         end
     elseif button == 2 then  -- Right mouse button
-        -- Cycle through brush sizes with right mouse button
-        self:cycleBrushSize()
+        -- Cycle through brush sizes with right mouse button (only in spray mode)
+        if self.mode == "spray" then
+            self:cycleBrushSize()
+        end
     elseif button == 3 then  -- Middle mouse button
         -- Activate camera control with middle mouse button
         self.cameraControl.active = true
@@ -300,7 +302,6 @@ function InputHandler:mousepressed(x, y, button)
         if self.camera and self.camera.disableFollowTarget then
             self.camera:disableFollowTarget()
         end
-        
     end
 end
 
@@ -309,11 +310,17 @@ function InputHandler:mousereleased(x, y, button)
     if button == 1 then  -- Left mouse button
         self.mouseDown = false
         
-        -- Check if we were aiming
-        if self.ballManager and self.ballManager.isCurrentlyAiming and self.ballManager.shoot and
+        -- In shoot mode, execute the shot if aiming
+        if self.mode == "shoot" and self.ballManager and 
+           self.ballManager.isCurrentlyAiming and self.ballManager.shoot and
            self.ballManager:isCurrentlyAiming() then
             -- Execute the shot
             self.ballManager:shoot()
+            
+            -- Record the shot in game state if available
+            if _G.gameState and _G.gameState.recordShot then
+                _G.gameState:recordShot()
+            end
         end
     elseif button == 3 then  -- Middle mouse button
         -- End camera control
@@ -327,45 +334,62 @@ end
 function InputHandler:keypressed(key)
     self.keys[key] = true
     
-    -- Cancel shot with escape
-    if key == "escape" and self.ballManager and self.ballManager.isCurrentlyAiming and 
-       self.ballManager.cancelShot and self.ballManager:isCurrentlyAiming() then
-        self.ballManager:cancelShot()
+    -- Toggle between spray and shoot modes with space
+    if key == "space" then
+        if self.mode == "spray" then
+            self.mode = "shoot"
+        else
+            self.mode = "spray"
+        end
+        return
     end
     
-    -- Material selection
-    if key == "1" then
-        self.currentMaterial = 20  -- Sand
-    elseif key == "2" then
-        self.currentMaterial = 30  -- Water
-    elseif key == "3" then
-        self.currentMaterial = 40  -- Fire
-    elseif key == "4" then
-        self.currentMaterial = 10  -- Stone
-    elseif key == "5" then
-        self.currentMaterial = 11  -- Dirt
-    elseif key == "tab" then
-        -- Cycle through materials (since middle mouse button now pans the camera)
-        if self.currentMaterial == 20 then -- Sand -> Water
-            self.currentMaterial = 30
-        elseif self.currentMaterial == 30 then -- Water -> Fire
-            self.currentMaterial = 40
-        elseif self.currentMaterial == 40 then -- Fire -> Stone
-            self.currentMaterial = 10
-        elseif self.currentMaterial == 10 then -- Stone -> Dirt
-            self.currentMaterial = 11
-        elseif self.currentMaterial == 11 then -- Dirt -> Sand
-            self.currentMaterial = 20
-        else
-            self.currentMaterial = 20
+    -- Cancel shot with escape
+    if key == "escape" then
+        -- Cancel regular ball aim
+        if self.ballManager and self.ballManager.isCurrentlyAiming and 
+           self.ballManager.cancelShot and self.ballManager:isCurrentlyAiming() then
+            self.ballManager:cancelShot()
         end
     end
     
-    -- Brush size
-    if key == "[" and self.brushSize > 1 then
-        self.brushSize = self.brushSize - 1
-    elseif key == "]" and self.brushSize < 10 then
-        self.brushSize = self.brushSize + 1
+    -- Material selection (only in spray mode)
+    if self.mode == "spray" then
+        if key == "1" then
+            self.currentMaterial = 20  -- Sand
+        elseif key == "2" then
+            self.currentMaterial = 30  -- Water
+        elseif key == "3" then
+            self.currentMaterial = 40  -- Fire
+        elseif key == "4" then
+            self.currentMaterial = 10  -- Stone
+        elseif key == "5" then
+            self.currentMaterial = 11  -- Dirt
+        elseif key == "tab" then
+            -- Cycle through materials (since middle mouse button now pans the camera)
+            if self.currentMaterial == 20 then -- Sand -> Water
+                self.currentMaterial = 30
+            elseif self.currentMaterial == 30 then -- Water -> Fire
+                self.currentMaterial = 40
+            elseif self.currentMaterial == 40 then -- Fire -> Stone
+                self.currentMaterial = 10
+            elseif self.currentMaterial == 10 then -- Stone -> Dirt
+                self.currentMaterial = 11
+            elseif self.currentMaterial == 11 then -- Dirt -> Sand
+                self.currentMaterial = 20
+            else
+                self.currentMaterial = 20
+            end
+        end
+    end
+    
+    -- Brush size (only in spray mode)
+    if self.mode == "spray" then
+        if key == "[" and self.brushSize > 1 then
+            self.brushSize = self.brushSize - 1
+        elseif key == "]" and self.brushSize < 10 then
+            self.brushSize = self.brushSize + 1
+        end
     end
     
     -- Clear all cells with 'c' key
@@ -455,6 +479,9 @@ function InputHandler:draw()
     -- Draw the custom cursor
     self:drawCustomCursor()
     
+    -- Draw the current mode
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.print("Mode: " .. (self.mode == "spray" and "Spray (Space to toggle)" or "Shoot (Space to toggle)"), 10, 130)
 end
 
 
@@ -476,38 +503,55 @@ function InputHandler:drawCustomCursor()
         color = {1, 1, 1, 1}
     end
     
-    -- Draw a spray can cursor
-    love.graphics.setColor(0.3, 0.3, 0.3, 1)  -- Dark gray for the can
-    
-    -- Can body
-    love.graphics.rectangle("fill", self.mouseX - 8, self.mouseY - 4, 16, 20)
-    
-    -- Can top
-    love.graphics.rectangle("fill", self.mouseX - 6, self.mouseY - 10, 12, 6)
-    
-    -- Spray nozzle
-    love.graphics.rectangle("fill", self.mouseX - 2, self.mouseY - 14, 4, 4)
-    
-    -- Material color indicator on the can
-    love.graphics.setColor(color)
-    love.graphics.rectangle("fill", self.mouseX - 6, self.mouseY, 12, 12)
-    
-    -- Draw spray particles if mouse is down
-    if self.mouseDown and not self.cameraControl.active then
-        -- Draw some spray particles
-        for i = 1, 5 do
-            local angle = math.random() * math.pi * 0.5 - math.pi * 0.25  -- -45 to 45 degrees
-            local distance = math.random(10, 20)
-            local x = self.mouseX + math.cos(angle) * distance
-            local y = self.mouseY - 16 + math.sin(angle) * distance  -- From the nozzle
-            
-            -- Particle size varies
-            local size = math.random(2, 4)
-            
-            -- Draw the particle
-            love.graphics.setColor(color[1], color[2], color[3], 0.7)
-            love.graphics.rectangle("fill", x - size/2, y - size/2, size, size)
+    -- In spray mode, draw a spray can cursor
+    if self.mode == "spray" then
+        love.graphics.setColor(0.3, 0.3, 0.3, 1)  -- Dark gray for the can
+        
+        -- Can body
+        love.graphics.rectangle("fill", self.mouseX - 8, self.mouseY - 4, 16, 20)
+        
+        -- Can top
+        love.graphics.rectangle("fill", self.mouseX - 6, self.mouseY - 10, 12, 6)
+        
+        -- Spray nozzle
+        love.graphics.rectangle("fill", self.mouseX - 2, self.mouseY - 14, 4, 4)
+        
+        -- Material color indicator on the can
+        love.graphics.setColor(color)
+        love.graphics.rectangle("fill", self.mouseX - 6, self.mouseY, 12, 12)
+        
+        -- Draw spray particles if mouse is down
+        if self.mouseDown and not self.cameraControl.active then
+            -- Draw some spray particles
+            for i = 1, 5 do
+                local angle = math.random() * math.pi * 0.5 - math.pi * 0.25  -- -45 to 45 degrees
+                local distance = math.random(10, 20)
+                local x = self.mouseX + math.cos(angle) * distance
+                local y = self.mouseY - 16 + math.sin(angle) * distance  -- From the nozzle
+                
+                -- Particle size varies
+                local size = math.random(2, 4)
+                
+                -- Draw the particle
+                love.graphics.setColor(color[1], color[2], color[3], 0.7)
+                love.graphics.rectangle("fill", x - size/2, y - size/2, size, size)
+            end
         end
+    else
+        -- In shoot mode, draw a target cursor
+        love.graphics.setColor(1, 0.2, 0.2, 0.8)
+        
+        -- Outer circle
+        love.graphics.circle("line", self.mouseX, self.mouseY, 12)
+        
+        -- Inner circle
+        love.graphics.circle("line", self.mouseX, self.mouseY, 6)
+        
+        -- Crosshair lines
+        love.graphics.line(self.mouseX - 16, self.mouseY, self.mouseX - 8, self.mouseY)
+        love.graphics.line(self.mouseX + 8, self.mouseY, self.mouseX + 16, self.mouseY)
+        love.graphics.line(self.mouseX, self.mouseY - 16, self.mouseX, self.mouseY - 8)
+        love.graphics.line(self.mouseX, self.mouseY + 8, self.mouseX, self.mouseY + 16)
     end
     
     -- Reset color
@@ -516,6 +560,9 @@ end
 
 -- Draw the material indicator
 function InputHandler:drawMaterialIndicator()
+    -- Only show material indicator in spray mode
+    if self.mode ~= "spray" then return end
+    
     local x = self.materialIndicator.x
     local y = self.materialIndicator.y
     local width = self.materialIndicator.width

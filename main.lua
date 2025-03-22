@@ -7,6 +7,7 @@ local BallManager = require("src.balls.BallManager")
 local InputHandler = require("src.InputHandler")
 local Camera = require("src.Camera")
 local UI = require("src.UI")
+local BallTypes = require("src.balls.BallTypes")
 
 -- Global variables
 _G.cellWorld = nil  -- Make cellWorld globally accessible
@@ -48,10 +49,10 @@ function love.load()
     -- Disabled shader for better visibility of the helper grid
     cellShader = nil
     
+    camera = Camera.new()  -- Initialize camera first
     cellWorld = CellWorld.new(WORLD_WIDTH, WORLD_HEIGHT, CELL_SIZE, cellShader)
     _G.cellWorld = cellWorld  -- Set the global reference
     gameState = GameState.new()
-    camera = Camera.new()  -- Initialize camera before ballManager and inputHandler
     ballManager = BallManager.new(cellWorld)
     inputHandler = InputHandler.new(ballManager, camera)
     _G.inputHandler = inputHandler  -- Set the global reference
@@ -73,8 +74,8 @@ function love.load()
     local scale = math.min(scaleX, scaleY) * 0.8  -- Use 80% of the calculated scale for some margin
     camera:setZoom(scale)
     
-    -- Load level 2 for material debugging
-    loadLevel(2)
+    -- Load level 2 with ball cell
+    loadLevel(2, BallTypes.BALL)
     
 end
 
@@ -332,7 +333,7 @@ function createEmptyCanvas()
     
     -- Set up a ball in the center of the container
     local startPosition = {x = 50, y = 40}
-    ballManager:reset(startPosition, 1)  -- Standard ball
+    ballManager:reset(startPosition, BallTypes.BALL)  -- Ball cell
     
     -- Focus camera on the center of the visible area (same as level 2)
     camera:focusOn(50, 40)
@@ -547,7 +548,7 @@ function generateRandomLevel()
     local startX = math.random(20, 80)
     local startY = 20  -- Start high up but within the container
     local startPosition = {x = startX, y = startY}
-    ballManager:reset(startPosition, 1)  -- Standard ball
+    ballManager:reset(startPosition, BallTypes.BALL)  -- Ball cell
     
     -- Focus camera on the center of the visible area (same as level 2)
     camera:focusOn(50, 40)
@@ -563,7 +564,7 @@ function generateRandomLevel()
 end
 
 -- Load a specific level
-function loadLevel(levelNum)
+function loadLevel(levelNum, forceBallType)
     gameState:setCurrentLevel(levelNum)
     cellWorld:clear()
     
@@ -573,7 +574,13 @@ function loadLevel(levelNum)
     
     cellWorld:loadFromData(levelData.cells)
     
-    ballManager:reset(levelData.startPosition, levelData.ballType)
+    -- Always use ball cell type
+    ballManager:reset(levelData.startPosition, BallTypes.BALL, levelData.initialVelocity)
+    
+    -- Set gravity if specified in level data
+    if levelData.gravity ~= nil then
+        ballManager.gravity = levelData.gravity
+    end
     
     -- For level 2 (debug level), focus on the center of the container
     if levelNum == 2 then
