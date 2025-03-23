@@ -12,9 +12,8 @@ level.par = 0  -- No par for debug level
 
 -- Starting position and ball type
 level.startPosition = {x = 50, y = 20}
-level.ballType = BallTypes.CELL
+level.ballType = BallTypes.BALL
 level.initialVelocity = {x = 0, y = 0}  -- Start with zero velocity
-level.gravity = 0.5  -- Enable stronger gravity for golf ball
 
 -- Hole position (off-screen)
 level.holePosition = {x = -10, y = -10}

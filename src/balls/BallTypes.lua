@@ -1,17 +1,17 @@
 -- BallTypes.lua - Defines the ball type for the game
 
 local BallTypes = {
-    -- Only one ball type - a simple cell in the grid
+    -- Only one ball type - a 3x3 grid of cells
     BALL = 99
 }
 
 -- Ball type properties
 local properties = {
     [BallTypes.BALL] = {
-        name = "Ball Cell",
-        description = "Simple ball represented as a single cell in the grid",
+        name = "Multi-Cell Ball",
+        description = "Ball represented as a 3x3 grid of cells with rotation",
         mass = 1.0,
-        radius = 1,
+        radius = 1.5,  -- Increased radius for 3x3 ball
         bounceFactor = 0.7,
         friction = 0.98,
         color = {1, 1, 1, 1}  -- White color

@@ -565,10 +565,7 @@ function loadLevel(levelNum, forceBallType)
     -- Always use ball cell type
     ballManager:reset(levelData.startPosition, BallTypes.BALL, levelData.initialVelocity)
     
-    -- Set gravity if specified in level data
-    if levelData.gravity ~= nil then
-        ballManager.gravity = levelData.gravity
-    end
+    -- Use the default gravity from BallManager
     
     -- For level 2 (debug level), focus on the center of the container
     if levelNum == 2 then

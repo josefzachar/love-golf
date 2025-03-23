@@ -12,7 +12,7 @@ level.par = 3
 
 -- Starting position and ball type
 level.startPosition = {x = 25, y = 25}  -- Adjusted for smaller world
-level.ballType = BallTypes.STANDARD
+level.ballType = BallTypes.BALL
 
 -- Hole position
 level.holePosition = {x = 85, y = 40}  -- Adjusted for smaller world
