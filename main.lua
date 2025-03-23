@@ -4,7 +4,7 @@
 local CellWorld = require("src.cells.CellWorld")
 local GameState = require("src.GameState")
 local BallManager = require("src.balls.BallManager")
-local InputHandler = require("src.InputHandler")
+local InputHandler = require("src.input.InputHandler")
 local Camera = require("src.Camera")
 local UI = require("src.UI")
 local BallTypes = require("src.balls.BallTypes")
@@ -167,7 +167,6 @@ end
 
 -- Input callbacks
 function love.mousepressed(x, y, button)
-    
     -- First check if UI handled the click
     if ui:mousepressed(x, y, button) then
         return -- UI handled the click
@@ -178,39 +177,22 @@ function love.mousepressed(x, y, button)
 end
 
 function love.mousereleased(x, y, button)
-    
     inputHandler:mousereleased(x, y, button)
 end
 
--- Add a direct mouse movement handler
+-- Mouse moved callback
 function love.mousemoved(x, y, dx, dy, istouch)
-    
-    -- Directly handle camera movement if a button is held down
-    if inputHandler.cameraControl and inputHandler.cameraControl.active then
-        
-        -- Update mouse position
-        inputHandler.mouseX = x
-        inputHandler.mouseY = y
-        
-        -- Calculate world movement
-        local scale = inputHandler.camera.scale or 1
-        local worldDx = dx / scale
-        local worldDy = dy / scale
-        
-        -- Move camera in opposite direction of drag
-        if inputHandler.camera.x ~= nil and inputHandler.camera.y ~= nil then
-            -- Directly update camera position for immediate response
-            inputHandler.camera.x = inputHandler.camera.x - worldDx
-            inputHandler.camera.y = inputHandler.camera.y - worldDy
-            
-            -- Also update target position to match
-            inputHandler.camera.targetX = inputHandler.camera.x
-            inputHandler.camera.targetY = inputHandler.camera.y
-            
-        end
-    end
+    -- Delegate to input handler
+    inputHandler:mousemoved(x, y, dx, dy)
 end
 
+-- Mouse wheel moved callback
+function love.wheelmoved(x, y)
+    -- Delegate to input handler
+    inputHandler:wheelmoved(x, y)
+end
+
+-- Key pressed callback
 function love.keypressed(key)
     -- First pass the key to the input handler
     inputHandler:keypressed(key)
@@ -271,6 +253,12 @@ function love.keypressed(key)
         -- Re-enable camera follow if it was disabled
         camera:enableFollowTarget()
     end
+end
+
+-- Key released callback
+function love.keyreleased(key)
+    -- Delegate to input handler
+    inputHandler:keyreleased(key)
 end
 
 -- Create an empty canvas
